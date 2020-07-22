@@ -1,0 +1,211 @@
+----- Integer -----
+integer totaldonated;
+integer iEc;
+integer iPrix=1;//Changer la valeur de iPrix pour changer le montant a payer
+-------------------
+----- String -----
+string sOwner;
+string texte_flottant="Un clic gauche pour vous inscrire à la loterie ";//Texte initial figurant sur l'objet
+string sTexte_attente="La loterie n'est pas ouverte pour le moment.";//Texte affiché par l'objet en mode attente
+string sTexte_gagnant="Le gagnant du tirage est : ";//Texte annonçant le gagnant
+string sStart="Un nouveau tirage est lancé.... !";//Texte annonçant un nouveau tirage
+string sPlayer="vous êtes enregistrée pour le tirage au sort...";//Texte annonçant l'enregistrement au tirage
+string sWin="Vous venez de gagner... ";//Texte envoyé par IM au gagnant
+
+integer iEc;
+integer count = 11;
+
+key kOwner;
+
+list lNoms;//Liste des noms de ceux qui ont payés
+list lCles;//Liste des clés de ceux qui ont payé. Nécessaire pour redistribution de quoi que ce soit
+
+
+
+tirage()
+{
+    if(lNoms!=[])
+    {
+    integer iNum=llFloor(llFrand(0.99)*llGetListLength(lNoms));
+    llSay(0,sTexte_gagnant+llList2String(lNoms,iNum));
+    llInstantMessage(llList2Key(lCles,iNum),sWin);
+    }
+    else
+    {
+    llSay(0,"Pas de personne inscrite pour ce tirage....");
+    }
+    llResetScript();//tout est remis a 0, toutes les listes sont effacees et le script retourne en mode attente de lancement
+}
+
+inscription(key a)
+{
+    if(llListFindList(lCles,[a])==-1)
+    {
+    lCles += a;//liste des cles de ceux qui ont payé
+    lNoms += llKey2Name(a);//liste des noms de ceux qui ont payé
+
+    llSay(0,llKey2Name(a)+" "+sPlayer);//Envoie un message à celui qui a payé
+    llInstantMessage(kOwner, llKey2Name(a)+" est inscrit");//Envoie un message au owner
+    }
+    else
+    {
+    llInstantMessage(a,llKey2Name(a)+" vous êtes déjà enregistée pour le tirage au sort");
+    }
+}
+
+
+default
+{
+    on_rez( integer sparam )
+    {
+        llResetScript();
+    }
+
+    state_entry()
+    {
+        kOwner =llGetOwner();
+        lNoms = [];
+        lCles = [];
+        state attente;
+    }
+}
+
+
+state attente
+{
+    state_entry()
+    {
+        llSetText(sTexte_attente,<1.0,0.0,0.0>,1);
+        llListen(54,"",kOwner,"");
+    }
+
+    listen(integer channel,string name,key id,string msg)
+    {
+    if(msg=="start")
+        {
+        llSay(0,sStart);
+        state marche;
+        }
+    }
+}
+
+
+state marche
+{
+    state_entry()
+    {
+    integer total_number;
+    integer i;
+   
+    llSetTimerEvent(590.0);
+    sOwner = llKey2Name(kOwner);
+    llSetText(texte_flottant,<.25,1,.65>,1);
+    lNoms=[];
+    lCles=[];
+    iEc=llListen(54,"",kOwner,"");
+    }
+   
+    listen(integer channel,string name,key id,string msg)
+    {
+    if(msg=="stop")
+        {
+        llSay(0, "tirage annulé ");
+        state default;
+        }
+    }
+
+    touch_start(integer num)
+    {
+    if(llDetectedKey(0)==kOwner)
+        {
+        llOwnerSay("Il y a "+(string)llGetListLength(lNoms)+" personnes inscrites au tirage.");
+        inscription(kOwner);// Permet au owner de s'inscrire aussi. Mettre // devant cette ligne pour la neutraliser
+        }
+    else
+        {
+        inscription(llDetectedKey(0));
+        }
+    }
+   
+    timer()
+    {
+        llSetTimerEvent(1.0);
+        count--;
+       
+        if(count == 0)
+        {
+            llSay(0, " Tirage en cours...");
+            llSleep(0.5);
+            tirage();
+        }
+       
+        else
+        {           
+            llSay(0, (string)count +" sec. avant le tirage");
+        }     
+    }       
+}
+llResetScript();
+}
+listen(integer channel,string name,key id,string msg)
+{
+if(msg=="start"&&id==llGetOwner())
+{
+llSay(0,sStart);
+state marche;
+}
+}
+}
+state marche
+{
+state_entry()
+{
+integer total_number;
+integer i;
+kOwner = llGetOwner();
+sOwner = llKey2Name(llGetOwner());
+llSetText(texte_flottant,<.25,1,.65>,1);
+lNoms=[];
+lCles=[];
+iEc=llListen(54,"",NULL_KEY,"");
+//llSetPayPrice(PAY_HIDE, [iPrix,PAY_HIDE,PAY_HIDE,PAY_HIDE]);// montant par defaut (1), puis liste de 1 montants (1)
+}
+listen(integer channel,string name,key id,string msg)
+{
+if(msg=="stop"&&id==llGetOwner())
+{
+tirage();
+state attente;
+}
+}
+state_exit()
+{
+llListenRemove(iEc);
+llSetTimerEvent(.0);
+}
+touch_start(integer num)
+{
+if(llDetectedKey(0)==llGetOwner())
+{
+llOwnerSay("Il y a "+(string)llGetListLength(lNoms)+" personnes inscrites au tirage.");
+inscription(llDetectedKey(0));// Permet au owner de s'inscrire aussi. Mettre // devant cette ligne pour la neutraliser
+}
+else
+{
+inscription(llDetectedKey(0));
+//llInstantMessage(llDetectedKey(0),"Pour vous inscrire au tirage, faites un clic droit et choisissez "Payer"");
+}
+}
+//money(key id, integer amount)
+//{
+// totaldonated+=amount;
+// lCles+=id;//liste des cles de ceux qui ont payé
+// lNoms+=llKey2Name(id);//liste des noms de ceux qui ont payé
+// llSay(0,llKey2Name(id)+" "+sPlayer);//Envoie un message à celui qui a payé
+// llInstantMessage(llGetOwner(),(string)llKey2Name(id)+" is registered");//Envoie un message au owner
+//}
+on_rez(integer start)
+{
+llResetScript();
+}
+}
